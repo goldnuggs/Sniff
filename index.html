@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Integrated Budget + Calendar</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      --primary: #2f6fed;
+      --soft: #f5f7fb;
+      --text: #1d1f2a;
+      --muted: #6b7280;
+      --border: #e2e8f0;
+      --success: #16a34a;
+      --danger: #dc2626;
+    }
+
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: var(--text);
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px 56px;
+      display: grid;
+      gap: 32px;
+    }
+
+    header {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      margin: 0;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--soft);
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .card h2 {
+      font-size: 1.1rem;
+      margin: 0 0 12px;
+    }
+
+    .card .amount {
+      font-size: 2rem;
+      font-weight: 600;
+    }
+
+    .amount.positive {
+      color: var(--success);
+    }
+
+    .amount.negative {
+      color: var(--danger);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) minmax(280px, 1.1fr);
+      gap: 24px;
+    }
+
+    .budget-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .budget-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .budget-item span {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .budget-item strong {
+      font-size: 1rem;
+    }
+
+    .calendar {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    .calendar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .calendar-header h3 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+
+    .weekday {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-align: center;
+    }
+
+    .day {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      border: 1px solid transparent;
+    }
+
+    .day.today {
+      background: var(--primary);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .day.muted {
+      color: var(--muted);
+    }
+
+    .notes {
+      margin-top: 16px;
+      font-size: 0.95rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Integrated Budget + Calendar</h1>
+      <p class="subtitle" id="todayLabel"></p>
+    </header>
+
+    <section class="summary-grid">
+      <div class="card">
+        <h2>Monthly Income</h2>
+        <div class="amount positive" id="incomeTotal"></div>
+        <p class="subtitle">Salary + side projects + refunds</p>
+      </div>
+      <div class="card">
+        <h2>Monthly Expenses</h2>
+        <div class="amount negative" id="expenseTotal"></div>
+        <p class="subtitle">Housing, utilities, subscriptions</p>
+      </div>
+      <div class="card">
+        <h2>Remaining Balance</h2>
+        <div class="amount" id="balanceTotal"></div>
+        <p class="subtitle">Cash left after expenses</p>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="card">
+        <h2>Today&#39;s Budget</h2>
+        <div class="budget-list" id="budgetList"></div>
+      </div>
+
+      <div class="calendar">
+        <div class="calendar-header">
+          <h3 id="calendarTitle"></h3>
+          <span class="subtitle">Highlighted = today</span>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+        <div class="notes">
+          Review high-impact spend days and align them with calendar reminders for bills and paydays.
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const budget = {
+      income: [
+        { label: "Primary salary", amount: 4200 },
+        { label: "Freelance design", amount: 650 },
+        { label: "Refunds", amount: 120 },
+      ],
+      expenses: [
+        { label: "Rent", amount: 1500 },
+        { label: "Utilities", amount: 260 },
+        { label: "Groceries", amount: 420 },
+        { label: "Transit", amount: 130 },
+        { label: "Subscriptions", amount: 75 },
+        { label: "Dining & coffee", amount: 210 },
+      ],
+      today: [
+        { label: "Lunch meeting", amount: 22.5 },
+        { label: "Gas refill", amount: 38 },
+        { label: "Project software", amount: 14.99 },
+      ],
+    };
+
+    const formatter = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    });
+
+    const sum = (items) => items.reduce((total, item) => total + item.amount, 0);
+    const incomeTotal = sum(budget.income);
+    const expenseTotal = sum(budget.expenses);
+    const balance = incomeTotal - expenseTotal;
+
+    document.getElementById("incomeTotal").textContent = formatter.format(incomeTotal);
+    document.getElementById("expenseTotal").textContent = formatter.format(expenseTotal);
+
+    const balanceEl = document.getElementById("balanceTotal");
+    balanceEl.textContent = formatter.format(balance);
+    balanceEl.classList.add(balance >= 0 ? "positive" : "negative");
+
+    const budgetList = document.getElementById("budgetList");
+    budget.today.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "budget-item";
+      row.innerHTML = `
+        <div>
+          <strong>${item.label}</strong><br />
+          <span>Planned for today</span>
+        </div>
+        <strong>${formatter.format(item.amount)}</strong>
+      `;
+      budgetList.appendChild(row);
+    });
+
+    const today = new Date();
+    const todayLabel = document.getElementById("todayLabel");
+    todayLabel.textContent = `Today: ${today.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    })}`;
+
+    const calendarTitle = document.getElementById("calendarTitle");
+    calendarTitle.textContent = today.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+
+    const calendarGrid = document.getElementById("calendarGrid");
+    const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    weekdays.forEach((day) => {
+      const div = document.createElement("div");
+      div.className = "weekday";
+      div.textContent = day;
+      calendarGrid.appendChild(div);
+    });
+
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const startOffset = firstDay.getDay();
+
+    for (let i = 0; i < startOffset; i += 1) {
+      const blank = document.createElement("div");
+      blank.className = "day muted";
+      blank.textContent = "";
+      calendarGrid.appendChild(blank);
+    }
+
+    for (let day = 1; day <= lastDay.getDate(); day += 1) {
+      const cell = document.createElement("div");
+      cell.className = "day";
+      cell.textContent = day;
+      if (day === today.getDate()) {
+        cell.classList.add("today");
+      }
+      calendarGrid.appendChild(cell);
+    }
+  </script>
+</body>
+</html>
